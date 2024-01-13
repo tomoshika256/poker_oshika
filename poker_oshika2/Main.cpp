@@ -1,21 +1,15 @@
-﻿///ポーカーの手役がかぶったときの勝敗 https://www.tsuchimi-blog.com/game-pokerchase-5/#toc10
+///ポーカーの手役がかぶったときの勝敗 https://www.tsuchimi-blog.com/game-pokerchase-5/#toc10
 ///ポーカーのルール https://www.youtube.com/watch?v=tGoA4OWzzAk
 ///参考サイト https://daeudaeu.com/c-poker/#i-2
 
 # include <Siv3D.hpp>
 # include <vector>
 
-/// @brief 〇〇.x, 〇〇.yと書けるようにする構造体
-typedef struct Pos {
-	double x;
-	double y;
-} POS;
-
 /// @brief スクリーンの設定をするための構造体
 typedef struct Screen {
 	double width;
 	double height;
-	POS center;
+	Vec2 center;
 	ColorF color;
 }SCREEN;
 
@@ -173,12 +167,12 @@ void Main()
 		
 		double width_space = card_draw.player_space_width;
 		double height_space = card_draw.player_space_height;
-		std::vector<std::vector<POS>> playercard_pos(2, std::vector<POS>(2));
+		std::vector<std::vector<Vec2>> playercard_pos(2, std::vector<Vec2>(2));
 
-		playercard_pos[0][0] = POS(screen.center.x - pack.width() - width_space / 2, screen.center.y - table.height / 2 - pack.height() - height_space);
-		playercard_pos[0][1] = POS(screen.center.x + width_space / 2, screen.center.y - table.height / 2 - pack.height() - height_space);
-		playercard_pos[1][0] = POS(screen.center.x - pack.width() - width_space / 2, screen.center.y + table.height / 2 + height_space);
-		playercard_pos[1][1] = POS(screen.center.x + width_space / 2, screen.center.y + table.height / 2 + height_space);
+		playercard_pos[0][0] = Vec2(screen.center.x - pack.width() - width_space / 2, screen.center.y - table.height / 2 - pack.height() - height_space);
+		playercard_pos[0][1] = Vec2(screen.center.x + width_space / 2, screen.center.y - table.height / 2 - pack.height() - height_space);
+		playercard_pos[1][0] = Vec2(screen.center.x - pack.width() - width_space / 2, screen.center.y + table.height / 2 + height_space);
+		playercard_pos[1][1] = Vec2(screen.center.x + width_space / 2, screen.center.y + table.height / 2 + height_space);
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 2; j++) 
 				pack(player[i].cards[j]).draw(playercard_pos[i][j].x, playercard_pos[i][j].y);
@@ -191,9 +185,9 @@ void Main()
 		double card_width_space = (table.width- table_width_space*2-pack.width()*5)/4;
 		double left_edge = screen.center.x - (card_width_space + pack.width()) * 2;
 		
-		std::vector<POS> table_card_pos(5);
+		std::vector<Vec2> table_card_pos(5);
 		for (int i = 0; i < num_table_card[phase]; i++) 
-			table_card_pos[i] = POS(left_edge + (card_width_space + pack.width()) * i, screen.center.y);
+			table_card_pos[i] = Vec2(left_edge + (card_width_space + pack.width()) * i, screen.center.y);
 
 		for (int i = 0; i < num_table_card[phase]; i++) 
 			pack(table_card[i]).drawAt(table_card_pos[i].x, table_card_pos[i].y);
