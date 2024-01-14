@@ -98,12 +98,12 @@ int win_judge(PLAYER player[2]);
 
 void card_init(std::span<PLAYER> player, std::span<PlayingCard::Card> table_cards);
 
-/// @brief player.hand.best_combi_indexにrank_countを代入するときに使う関数
-void best_combi_index_assign(PLAYER& player, std::vector<int> rank_count);
+/// @brief best_combi_indexにrank_countを代入するときに使う関数
+void best_combi_index_assign(std::set<int>& best_combi_index, std::vector<int> rank_count);
 
 /// @brief 手役がストレートかどうかを判定するときの関数
 /// @return 与えられたカードの中で一番数字が大きい値を返す. 
-int straight(PLAYER& player, std::vector<std::vector<int>> count_rank, int hand_status);
+int straight(PLAYER& player, std::vector<std::vector<int>> count_rank, int set_hand_status, std::set<int>& best_combi_index);
 
 /// @return 与えられたインデックスのカードの数字を降順で返す.
 /// @param index 並び替えたいかたまりのインデックス
@@ -267,7 +267,18 @@ void table_card_draw_red_border(double centerX, double centerY, double cardWidth
 
 void card_init(std::span<PLAYER> player, std::span<PlayingCard::Card> table_cards)
 {
-	Array<PlayingCard::Card> random_deck = PlayingCard::CreateDeck().shuffle();
+	Array<PlayingCard::Card> random_deck = PlayingCard::CreateDeck();
+	/*
+	*  ここコメントアウト外して
+	  random_deck.shuffle();をコメントアウトすると
+	  ロイヤルストレートフラッシュが見れます
+		Array<PlayingCard::Card> tmp = random_deck;
+		for (int i = 5; i < 20; i++) 
+		random_deck[i - 4] = tmp[i];
+	*/
+	
+	random_deck.shuffle();
+
 	for (int i = 0; i < 2; i++) {
 		player[i].hand.best_combi_index.clear();
 		player[i].hand.max_rank.clear();
@@ -307,14 +318,18 @@ int win_judge(PLAYER player[]) {
 void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 	player.hand.status = 0;
 	player.hand.max_rank.clear();
+	player.hand.best_combi_index.clear();
 	/// @param count_suit マークのインデックス
 	std::vector<std::vector<int>> count_suit(4);
 
 	/// @param count_rank カードの数字のインデックス
 	std::vector<std::vector<int>> count_rank(14);
 
-	/// @param max_num 手役が完成しているとき一番大きい数字
-	std::vector<std::vector<int>> max_num(10);
+	/// @param max_rank ハンドの一番大きな数字(手役がかぶったときにつかう)(手役別に分けて管理)
+	std::vector<std::vector<int>> max_rank(10);
+
+	/// @param best_combi_index 最も強い組み合わせのインデックス(手役別に分けて管理)
+	std::vector<std::set<int>> best_combi_index(10);
 
 	/* 各々のマークと数字の枚数をカウント */
 	for (int i = 0; i < 2; i++) {
@@ -329,9 +344,8 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 	for (int i = 12; i >= 0; i--) {
 		if (count_rank[order[i]].size() == 2) {
 			player.hand.status = 1;
-			player.hand.best_combi_index.clear();
-			max_num[player.hand.status].push_back(order[i]);
-			best_combi_index_assign(player, count_rank[order[i]]);
+			max_rank[player.hand.status].push_back(order[i]);
+			best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[i]]);
 			break;
 		}
 	}
@@ -352,11 +366,10 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 			{
 				player.hand.status = 2;
 				two_pair_flag = 1;
-				player.hand.best_combi_index.clear();
-				max_num[player.hand.status].push_back(order[a]);
-				max_num[player.hand.status].push_back(order[b]);
-				best_combi_index_assign(player, count_rank[order[a]]);
-				best_combi_index_assign(player, count_rank[order[b]]);
+				max_rank[player.hand.status].push_back(order[a]);
+				max_rank[player.hand.status].push_back(order[b]);
+				best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[a]]);
+				best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[b]]);
 				break;
 			}
 		}		
@@ -366,23 +379,21 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 	for (int i = 12; i >= 0; i--) {
 		if (count_rank[order[i]].size() == 3) {
 			player.hand.status = 3;
-			player.hand.best_combi_index.clear();
-			max_num[player.hand.status].push_back(order[i]);
-			best_combi_index_assign(player, count_rank[order[i]]);
+			max_rank[player.hand.status].push_back(order[i]);
+			best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[i]]);
 			break;
 		}
 	}
 	/*ストレート*/
-	max_num[4].push_back(straight(player, count_rank, 4));
+	max_rank[4].push_back(straight(player, count_rank, 4,best_combi_index[4]));
 
 	/* フラッシュ*/
 	for (int i = 0; i < 4; i++) {
 		if (count_suit[i].size() >= 5) {
 			player.hand.suited_suit = i;
 			player.hand.status = 5;
-			player.hand.best_combi_index.clear();
-			best_combi_index_assign(player, count_suit[i]);
-			max_num[5].push_back(rank_sort(player, table_cards, player.hand.best_combi_index)[0]);
+			best_combi_index_assign(best_combi_index[player.hand.status], count_suit[i]);
+			max_rank[5].push_back(rank_sort(player, table_cards, best_combi_index[player.hand.status])[0]);
 			break;
 		}
 	}
@@ -396,12 +407,11 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 			if (a == b)continue;
 			if (count_rank[order[a]].size() == 3 && count_rank[order[b]].size() >= 2) {
 				player.hand.status = 6;
-				player.hand.best_combi_index.clear();
-				best_combi_index_assign(player, count_rank[order[a]]);
-				player.hand.best_combi_index.insert(count_rank[order[b]][0]);
-				player.hand.best_combi_index.insert(count_rank[order[b]][1]);
-				max_num[player.hand.status].push_back(order[a]);
-				max_num[player.hand.status].push_back(order[b]);
+				best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[a]]);
+				best_combi_index[player.hand.status].insert(count_rank[order[b]][0]);
+				best_combi_index[player.hand.status].insert(count_rank[order[b]][1]);
+				max_rank[player.hand.status].push_back(order[a]);
+				max_rank[player.hand.status].push_back(order[b]);
 				full_house_flag = 1;
 				break;
 			}
@@ -411,9 +421,8 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 	for (int i = 12; i >= 0; i--) {
 		if (count_rank[order[i]].size() == 4) {
 			player.hand.status = 7;
-			player.hand.best_combi_index.clear();
-			max_num[player.hand.status].push_back(order[i]);
-			best_combi_index_assign(player, count_rank[order[i]]);
+			max_rank[player.hand.status].push_back(order[i]);
+			best_combi_index_assign(best_combi_index[player.hand.status], count_rank[order[i]]);
 			break;
 		}
 	}
@@ -429,17 +438,17 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 				else
 					tmp_count_rank[table_cards[b - 2].rank].push_back(b);
 			}
-			int tmp_max=straight(player, tmp_count_rank, 8);
-			max_num[8].push_back(tmp_max);
+			int tmp_max=straight(player, tmp_count_rank, 8, best_combi_index[8]);
+			max_rank[8].push_back(tmp_max);
 			if (tmp_max == 1) {
 				player.hand.status = 9;
-				max_num[9].push_back(tmp_max);
-			}
+				best_combi_index[9] = best_combi_index[8];
+			}	
 		}
 	}
 
 	if (player.hand.status == 0)
-		max_num[0].push_back(poker_max(player.cards[0].rank, player.cards[1].rank));
+		max_rank[0].push_back(poker_max(player.cards[0].rank, player.cards[1].rank));
 	
 	/*キッカー*/
 	std::vector<int> kiker_needs= {0,1,2,3,7};
@@ -450,23 +459,22 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 			std::set<int> tmp1;
 			for (int a = 0; a < 7; a++)
 				tmp1.insert(a);
-			for (int a : player.hand.best_combi_index)
+			for (int a :best_combi_index[player.hand.status])
 				tmp1.erase(a);
 
 			///手役に絡まないカードの大きな値をmax_numに代入していく
 			std::vector<int> tmp2=rank_sort(player, table_cards, tmp1);
-			for(int a=0;a< 5-player.hand.best_combi_index.size();a++)
-				max_num[player.hand.status].push_back(tmp2[a]);
+			for(int a=0;a< 5- best_combi_index[player.hand.status].size();a++)
+				max_rank[player.hand.status].push_back(tmp2[a]);
 		}
 	}
-
-	for (int i : max_num[player.hand.status])
-		player.hand.max_rank.push_back(i);
+	player.hand.max_rank = max_rank[player.hand.status];
+	player.hand.best_combi_index= best_combi_index[player.hand.status];
 }
 
-void best_combi_index_assign(PLAYER& player, std::vector<int> rank_count) {
+void best_combi_index_assign(std::set<int>& best_combi_index, std::vector<int> rank_count) {
 	for (int x : rank_count) 
-		player.hand.best_combi_index.insert(x);
+		best_combi_index.insert(x);
 }
 
 //最大値を見つけるときにもっと効率のいい方法はあるか?
@@ -503,7 +511,7 @@ int poker_max(std::vector<int> a) {
 		}
 	}
 }
-int straight(PLAYER& player, std::vector<std::vector<int>> count_rank,int hand_status) {
+int straight(PLAYER& player, std::vector<std::vector<int>> count_rank,int set_hand_status, std::set<int>& best_combi_index) {
 	for (int a = 12; a >= 4; a--) {
 		int b;
 		for (b = a; b >= a - 4; b--) {
@@ -511,10 +519,9 @@ int straight(PLAYER& player, std::vector<std::vector<int>> count_rank,int hand_s
 				break;
 		}
 		if (a == b + 5) {
-			player.hand.status = hand_status;
-			player.hand.best_combi_index.clear();
+			player.hand.status = set_hand_status;
 			for (int c = b+1; c <= a; c++)
-				player.hand.best_combi_index.insert( count_rank[order[c]][0]);
+				best_combi_index.insert( count_rank[order[c]][0]);
 			return order[a];
 			break;
 		}
@@ -526,10 +533,9 @@ int straight(PLAYER& player, std::vector<std::vector<int>> count_rank,int hand_s
 			break;
 	}
 	if (i == 6) {
-		player.hand.status = hand_status;
-		player.hand.best_combi_index.clear();
+		player.hand.status = set_hand_status;
 		for (int j = 1; j <= 5; j++)
-			player.hand.best_combi_index.insert(count_rank[j][0]);
+			best_combi_index.insert(count_rank[j][0]);
 		return 5;
 	}
 	return 0;
