@@ -349,10 +349,7 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 			break;
 		}
 	}
-	/*バグ防止*/
-	if (phase == 0)
-		return;
-
+	
 	/*ツーペア*/
 
 	bool two_pair_flag = 0;
@@ -453,6 +450,9 @@ void hand_judge(PLAYER &player, PlayingCard::Card table_cards[5]) {
 	/*キッカー*/
 	std::vector<int> kiker_needs= {0,1,2,3,7};
 	for (int i = 0; i < kiker_needs.size(); i++) {
+		/*バグ防止*/
+		if (phase == 0)
+			break;
 		if (player.hand.status == kiker_needs[i]) {
 
 			//手役に絡まないカードのインデックスをまとめる
