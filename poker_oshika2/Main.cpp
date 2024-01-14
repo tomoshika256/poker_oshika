@@ -1,6 +1,7 @@
 ///ポーカーの手役がかぶったときの勝敗 https://www.tsuchimi-blog.com/game-pokerchase-5/#toc10
 ///ポーカーのルール https://www.youtube.com/watch?v=tGoA4OWzzAk
 ///参考サイト https://daeudaeu.com/c-poker/#i-2
+///playingCard.hppのコード https://github.com/Siv3D/OpenSiv3D/blob/main/Siv3D/include/Siv3D/PlayingCard.hpp
 
 # include <Siv3D.hpp>
 # include <vector>
